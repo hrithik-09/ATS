@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
     "googleapis",
     "googleapis-common",
     "google-auth-library",
+    "jose",
+    "jwks-rsa",
   ],
 };
 
