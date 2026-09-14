@@ -131,9 +131,7 @@ export function CandidatePanel({
       (maxScheduledRound > lastAdvanced &&
         activeInterviews.length > 0 &&
         feedbackList.length >= activeInterviews.length &&
-        (c.stage === "Selected" ||
-          c.stage === "Interview Scheduled" ||
-          c.stage === "Debrief")));
+        (c.stage === "Selected" || c.stage === "Interview Scheduled")));
   async function hmDecide(action: "hmApprove" | "hmReject") {
     let reason: string | undefined;
     if (action === "hmReject") {
