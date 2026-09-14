@@ -2,7 +2,6 @@
 
 Internal talent acquisition suite: **Next.js + Firebase**, Google Sign-In on one URL, department-based **approval** before recruiting.
 
-Legacy Apps Script code lives in [`legacy/`](legacy/).
 
 ## Product flow
 
