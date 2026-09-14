@@ -4,11 +4,13 @@ import {
   addAudit,
   createFeedback,
   getCandidate,
+  getPlan,
   getRequisition,
   listFeedback,
   listInterviews,
   listStageEvents,
   updateCandidate,
+  updateInterview,
 } from "@/lib/db";
 import { canRecruit } from "@/lib/roles";
 import type { CandidateStage } from "@/lib/types";
@@ -135,6 +137,52 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           "Wait for hiring-manager approval before advancing this candidate."
         );
       }
+
+      const interviews = await listInterviews({ candidateId: id });
+      const maxRound = interviews
+        .filter((iv) => iv.status !== "Cancelled")
+        .reduce((m, iv) => Math.max(m, iv.roundIndex || 1), 0);
+      const lastAdvanced = c.lastAdvancedRound ?? 0;
+      const plan = await getPlan(c.reqId);
+      const configuredRounds = plan?.rounds?.length || 0;
+      const roundsComplete =
+        configuredRounds > 0
+          ? lastAdvanced >= configuredRounds
+          : maxRound > 0 && lastAdvanced >= maxRound;
+
+      const workflowLocked = new Set<CandidateStage>([
+        "PendingHMApproval",
+        "HMApproved",
+        "Screened",
+        "Shortlist",
+        "Interview",
+        "Interview Scheduled",
+        "Debrief",
+      ]);
+      if (
+        workflowLocked.has(c.stage) ||
+        (c.stage === "Selected" && !roundsComplete)
+      ) {
+        throw new ApiError(
+          400,
+          "Stage is managed by the interview workflow (schedule → feedback → debrief). Manual updates unlock after all rounds are complete."
+        );
+      }
+
+      const allowedOutcomes: CandidateStage[] = [
+        "Selected",
+        "Offered",
+        "Onboarded",
+        "Rejected",
+        "On Hold",
+      ];
+      if (!allowedOutcomes.includes(to)) {
+        throw new ApiError(
+          400,
+          "After interviews, stage can only be Selected, Offered, Onboarded, Rejected, or On Hold."
+        );
+      }
+
       const updated = await updateCandidate(
         id,
         { stage: to },
@@ -157,10 +205,13 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
 
     if (body.action === "feedback") {
+      const interviewId = body.interviewId
+        ? String(body.interviewId)
+        : undefined;
       const fb = await createFeedback({
         candidateId: id,
         reqId: c.reqId,
-        interviewId: body.interviewId,
+        interviewId,
         interviewer: String(body.interviewer || user.name),
         stage: String(body.stage || c.stage),
         rating: Number(body.rating) || 0,
@@ -168,6 +219,20 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         feedback: String(body.feedback || ""),
         createdBy: user.email,
       });
+      if (interviewId) {
+        await updateInterview(interviewId, { status: "Completed" });
+      }
+      if (
+        c.stage === "Interview Scheduled" ||
+        c.stage === "Interview" ||
+        c.stage === "Selected"
+      ) {
+        await updateCandidate(
+          id,
+          { stage: "Debrief" },
+          { byEmail: user.email, from: c.stage, to: "Debrief" }
+        );
+      }
       return json({ feedback: fb }, 201);
     }
 
@@ -180,12 +245,41 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       }
       const decision = String(body.decision || "");
       let stage: CandidateStage = c.stage;
-      if (decision === "Advance") stage = "Selected";
-      else if (decision === "Reject") stage = "Rejected";
-      else if (decision === "Hold") stage = "On Hold";
+      const interviews = await listInterviews({ candidateId: id });
+      const maxRound = interviews
+        .filter((iv) => iv.status !== "Cancelled")
+        .reduce((m, iv) => Math.max(m, iv.roundIndex || 1), 0);
+      const patch: Partial<{
+        stage: CandidateStage;
+        lastAdvancedRound: number;
+      }> = {};
+      if (decision === "Advance") {
+        stage = "Selected";
+        patch.stage = stage;
+        patch.lastAdvancedRound = maxRound;
+        // Mark past rounds complete so UI doesn't keep showing "Scheduled".
+        await Promise.all(
+          interviews
+            .filter(
+              (iv) =>
+                iv.status !== "Cancelled" &&
+                (iv.roundIndex || 1) <= maxRound &&
+                iv.status !== "Completed"
+            )
+            .map((iv) => updateInterview(iv.id, { status: "Completed" }))
+        );
+      } else if (decision === "Reject") {
+        stage = "Rejected";
+        patch.stage = stage;
+      } else if (decision === "Hold") {
+        stage = "On Hold";
+        patch.stage = stage;
+      } else {
+        throw new ApiError(400, "Invalid debrief decision.");
+      }
       const updated = await updateCandidate(
         id,
-        { stage },
+        patch,
         { byEmail: user.email, from: c.stage, to: stage }
       );
       return json({ candidate: updated, decision });

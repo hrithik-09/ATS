@@ -23,7 +23,6 @@ export async function PATCH(req: NextRequest) {
       company: body.company,
       logoUrl: body.logoUrl,
       slaDaysDefault: body.slaDaysDefault,
-      biasMaskDefault: body.biasMaskDefault,
     });
     return json({ org });
   } catch (e) {

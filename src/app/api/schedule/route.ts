@@ -90,6 +90,28 @@ export async function POST(req: NextRequest) {
     }
     const roundName = round.name;
 
+    const existing = await listInterviews({ candidateId });
+    const activeForRound = existing.filter(
+      (iv) =>
+        iv.status !== "Cancelled" &&
+        (iv.roundIndex || 1) === roundIndex
+    );
+    if (activeForRound.length > 0) {
+      throw new ApiError(
+        400,
+        `Round ${roundIndex} is already scheduled for this candidate.`
+      );
+    }
+    const maxBooked = existing
+      .filter((iv) => iv.status !== "Cancelled")
+      .reduce((m, iv) => Math.max(m, iv.roundIndex || 1), 0);
+    if (roundIndex > maxBooked + 1) {
+      throw new ApiError(
+        400,
+        `Schedule Round ${maxBooked + 1} before Round ${roundIndex}.`
+      );
+    }
+
     const interviewers = String(body.interviewers || "")
       .split(",")
       .map((s) => s.trim().toLowerCase())
@@ -116,7 +138,7 @@ export async function POST(req: NextRequest) {
         const event = await createInterviewCalendarEvent({
           summary: `${roundName}: ${c.name} — ${r.title}`,
           description: [
-            `LetsTransport ATS interview`,
+            `Talent Acquisition ATS interview`,
             `Round: ${roundIndex}. ${roundName}`,
             `Candidate: ${c.name}${c.email ? ` (${c.email})` : ""}`,
             `Requisition: ${r.id} — ${r.title}`,
@@ -152,7 +174,17 @@ export async function POST(req: NextRequest) {
       createdBy: user.email,
     });
 
-    if (c.stage === "HMApproved" || c.stage === "Interview") {
+    // Always move into the interview cycle when a round is booked
+    // (including after debrief Advance → Selected).
+    if (
+      c.stage === "HMApproved" ||
+      c.stage === "Interview" ||
+      c.stage === "Selected" ||
+      c.stage === "Debrief" ||
+      c.stage === "On Hold" ||
+      c.stage === "Screened" ||
+      c.stage === "Shortlist"
+    ) {
       await updateCandidate(
         candidateId,
         { stage: "Interview Scheduled" },

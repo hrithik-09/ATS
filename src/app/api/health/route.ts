@@ -7,6 +7,6 @@ export async function GET() {
     ok: true,
     firebase: !!getAdminApp(),
     calendarEnabled: isCalendarEnabled(),
-    name: "LetsTransport ATS v2",
+    name: "Talent Acquisition ATS",
   });
 }

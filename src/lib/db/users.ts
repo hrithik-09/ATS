@@ -35,9 +35,8 @@ export async function ensureSeedUsers() {
     if (!(await orgRef.get()).exists) {
       await orgRef.set({
         id: "org",
-        company: "LetsTransport",
+        company: "Talent Acquisition",
         slaDaysDefault: 10,
-        biasMaskDefault: false,
       } satisfies OrgSettings);
     }
   })().catch((e) => {

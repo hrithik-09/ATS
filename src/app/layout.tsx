@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, Space_Grotesk } from "next/font/google";
+import { AuthProvider } from "@/components/AuthProvider";
 import "./globals.css";
 
 const hanken = Hanken_Grotesk({
@@ -13,8 +14,8 @@ const space = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "LetsTransport ATS",
-  description: "Talent Acquisition Suite",
+  title: "Talent Acquisition ATS",
+  description: "Talent Acquisition — Applicant Tracking",
 };
 
 export default function RootLayout({
@@ -22,7 +23,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${hanken.variable} ${space.variable}`}>{children}</body>
+      <body className={`${hanken.variable} ${space.variable}`}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

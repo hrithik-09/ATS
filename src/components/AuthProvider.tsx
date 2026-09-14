@@ -77,27 +77,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+
+    // Stay in loading until Firebase session + /api/me are both settled,
+    // so /app never redirects to /login mid-restore (avoids login flicker).
     return onAuthStateChanged(auth, async (u) => {
       setFirebaseUser(u);
-      if (u) {
-        const t = await u.getIdToken();
-        setToken(t);
-      } else {
+      if (!u) {
         setToken(null);
         setProfile(null);
+        setError(null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+      try {
+        const t = await u.getIdToken();
+        setToken(t);
+        const data = await fetchMe(t);
+        setProfile(data.user);
+        setError(null);
+      } catch (e) {
+        setToken(null);
+        setProfile(null);
+        setError(e instanceof Error ? e.message : "Profile error");
+      } finally {
+        setLoading(false);
+      }
     });
   }, []);
-
-  useEffect(() => {
-    if (token) refreshProfile();
-  }, [token, refreshProfile]);
 
   const signInGoogle = useCallback(async () => {
     const auth = getClientAuth();
     if (!auth) throw new Error("Firebase is not configured.");
-    await signInWithPopup(auth, googleProvider);
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      // Profile is loaded by onAuthStateChanged; keep loading until then.
+    } catch (e) {
+      setLoading(false);
+      throw e;
+    }
   }, []);
 
   const signOut = useCallback(async () => {
@@ -148,4 +166,36 @@ export function useAuth() {
   const v = useContext(Ctx);
   if (!v) throw new Error("useAuth outside provider");
   return v;
+}
+
+/** Full-page boot while session restores or sign-in completes. */
+export function AuthBootScreen({
+  message = "Getting things ready",
+  detail = "Restoring your session…",
+}: {
+  message?: string;
+  detail?: string;
+}) {
+  return (
+    <div className="ats-boot" role="status" aria-live="polite" aria-busy="true">
+      <div className="ats-boot-card">
+        <div className="ats-boot-mark-wrap">
+          <div className="ats-boot-ring" aria-hidden />
+          <div className="ats-boot-mark">TA</div>
+        </div>
+        <div>
+          <p className="ats-boot-title">{message}</p>
+          <p className="ats-boot-sub">{detail}</p>
+        </div>
+        <div className="ats-boot-track" aria-hidden>
+          <div className="ats-boot-bar" />
+        </div>
+        <div className="ats-boot-dots" aria-hidden>
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </div>
+  );
 }

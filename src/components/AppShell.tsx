@@ -9,7 +9,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/AuthProvider";
+import { AuthBootScreen, useAuth } from "@/components/AuthProvider";
 import { DEPARTMENTS } from "@/lib/roles";
 import { ini } from "@/components/ats/ui";
 import type { AppUser, Requisition, Role } from "@/lib/types";
@@ -45,15 +45,13 @@ type Tab =
   | "approvals"
   | "schedule"
   | "dashboard"
-  | "analytics"
   | "team";
 
 export default function AppShell() {
   const { profile, loading, token, apiFetch, signOut, error } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("today");
-  const [orgName, setOrgName] = useState("LetsTransport");
-  const [bias, setBias] = useState(false);
+  const [orgName, setOrgName] = useState("Talent Acquisition");
   const [overlay, setOverlay] = useState(false);
   const [panel, setPanel] = useState<ReactNode>(null);
   const [today, setToday] = useState<Record<string, unknown> | null>(null);
@@ -112,8 +110,13 @@ export default function AppShell() {
     apiFetch("/api/org")
       .then((r) => r.json())
       .then((d) => {
-        if (d.org?.company) setOrgName(d.org.company);
-        if (d.org?.biasMaskDefault) setBias(!!d.org.biasMaskDefault);
+        const company = String(d.org?.company || "").trim();
+        // Product brand is Talent Acquisition; ignore legacy org names.
+        if (company && !/letstransport/i.test(company)) {
+          setOrgName(company);
+        } else {
+          setOrgName("Talent Acquisition");
+        }
       });
     if (role === "DepartmentHead") setTab("approvals");
     else if (role === "HiringManager") setTab("requisitions");
@@ -125,7 +128,7 @@ export default function AppShell() {
     if (tab === "today") loadToday();
     if (tab === "requisitions") loadReqs();
     if (tab === "approvals") loadApprovals();
-    if (tab === "dashboard" || tab === "analytics") loadAnalytics();
+    if (tab === "dashboard") loadAnalytics();
     if (tab === "team") loadTeam();
     if (tab === "schedule") loadReqs();
   }, [
@@ -149,7 +152,6 @@ export default function AppShell() {
       },
       { id: "schedule", label: "Schedule", show: role === "Admin" },
       { id: "dashboard", label: "Dashboard", show: role === "Admin" },
-      { id: "analytics", label: "Analytics", show: role === "Admin" },
       { id: "team", label: "Team", show: role === "Admin" },
     ];
     return all.filter((t) => t.show);
@@ -194,17 +196,16 @@ export default function AppShell() {
       <CandidatePanel
         data={d}
         role={role!}
-        bias={bias}
         isHmOwner={hmOwner || role === "Admin"}
         onClose={closeModal}
         apiFetch={apiFetch}
         onRefresh={() => openCandidate(id)}
-        onScheduleRound1={() => {
+        onScheduleRound={(roundIndex) => {
           closeModal();
           setSchedulePrefill({
             reqId: cand.reqId,
             candidateId: id,
-            roundIndex: 1,
+            roundIndex,
           });
           setTab("schedule");
         }}
@@ -232,7 +233,6 @@ export default function AppShell() {
         candidates={cd.candidates || []}
         interviews={idata.interviews || []}
         role={role!}
-        bias={bias}
         profileEmail={profile?.email}
         onClose={closeModal}
         apiFetch={apiFetch}
@@ -282,7 +282,6 @@ export default function AppShell() {
             closeModal();
             openCandidate(id);
           }}
-          bias={bias}
         />
       );
     }
@@ -325,9 +324,10 @@ export default function AppShell() {
 
   if (loading || !profile) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "#777" }}>
-        Loading…
-      </div>
+      <AuthBootScreen
+        message="Loading workspace"
+        detail="Pulling in your requisitions and pipeline…"
+      />
     );
   }
 
@@ -373,7 +373,7 @@ export default function AppShell() {
                 fontWeight: 800,
               }}
             >
-              LT
+              TA
             </div>
             <div>
               <div
@@ -404,7 +404,7 @@ export default function AppShell() {
                   letterSpacing: 0.4,
                 }}
               >
-                Talent Acquisition Suite
+                Applicant Tracking
               </div>
             </div>
           </div>
@@ -531,21 +531,6 @@ export default function AppShell() {
             ))}
           </nav>
           <div style={{ flex: 1 }} />
-          {role === "Admin" && (
-            <button
-              onClick={() => setBias((b) => !b)}
-              style={{
-                border: "1px solid #e2ddd0",
-                background: bias ? "#eef3f8" : "#fff",
-                borderRadius: 20,
-                padding: "6px 12px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              Bias guard {bias ? "On" : "Off"}
-            </button>
-          )}
           {(role === "HiringManager" || role === "Admin") && (
             <button
               onClick={openNewReq}
@@ -590,11 +575,10 @@ export default function AppShell() {
         )}
       </header>
 
-      <main style={{ flex: 1, padding: 16, overflow: "auto" }}>
+      <main style={{ flex: 1, padding: "16px 20px 28px", overflow: "auto", width: "100%" }}>
         {tab === "today" && (
           <TodayView
             data={today}
-            bias={bias}
             onReq={openPipeline}
             onCand={openCandidate}
           />
@@ -632,9 +616,7 @@ export default function AppShell() {
             }}
           />
         )}
-        {(tab === "dashboard" || tab === "analytics") && (
-          <AnalyticsView data={analytics} />
-        )}
+        {tab === "dashboard" && <AnalyticsView data={analytics} />}
         {tab === "team" && (
           <TeamView users={team} apiFetch={apiFetch} onRefresh={loadTeam} />
         )}

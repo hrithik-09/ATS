@@ -38,7 +38,6 @@ export interface OrgSettings {
   company: string;
   logoUrl?: string;
   slaDaysDefault: number;
-  biasMaskDefault: boolean;
 }
 
 export interface Requisition {
@@ -85,6 +84,8 @@ export interface Candidate {
   hmDecisionBy?: string;
   hmDecisionAt?: string;
   hmRejectReason?: string;
+  /** Highest interview round the candidate was advanced past (debrief Advance). */
+  lastAdvancedRound?: number;
   archived: boolean;
   createdAt: string;
   updatedAt: string;

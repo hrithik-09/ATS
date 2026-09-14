@@ -25,7 +25,6 @@ export function PipelinePanel({
   candidates,
   interviews,
   role,
-  bias,
   profileEmail,
   onClose,
   apiFetch,
@@ -37,7 +36,6 @@ export function PipelinePanel({
   candidates: Candidate[];
   interviews: Interview[];
   role: Role;
-  bias: boolean;
   profileEmail?: string;
   onClose: () => void;
   apiFetch: (p: string, i?: RequestInit) => Promise<Response>;
@@ -449,7 +447,7 @@ export function PipelinePanel({
                     style={{ ...tdCell, cursor: "pointer" }}
                     onClick={() => onCand(c.id)}
                   >
-                    <b>{bias ? `Candidate ${c.id}` : c.name}</b>
+                    <b>{c.name}</b>
                   </td>
                   <td style={tdCell}>{c.email || "—"}</td>
                   <td style={tdCell}>{c.phone || "—"}</td>
@@ -461,7 +459,45 @@ export function PipelinePanel({
                       {prettyStatus(c.stage)}
                     </Chip>
                   </td>
-                  <td style={tdCell}>{c.cvFileName || "—"}</td>
+                  <td style={tdCell} onClick={(e) => e.stopPropagation()}>
+                    {c.cvFileName && c.cvPath ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await apiFetch(
+                            `/api/candidates/${c.id}/cv`
+                          );
+                          if (!res.ok) {
+                            const d = await res.json().catch(() => ({}));
+                            alert(d.error || "Could not download CV.");
+                            return;
+                          }
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = c.cvFileName || "cv.pdf";
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                          URL.revokeObjectURL(url);
+                        }}
+                        style={{
+                          padding: 0,
+                          border: 0,
+                          background: "transparent",
+                          color: "#3a6ea5",
+                          fontSize: 13,
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        {c.cvFileName}
+                      </button>
+                    ) : (
+                      c.cvFileName || "—"
+                    )}
+                  </td>
                   {canHmDecide && (
                     <td style={tdCell} onClick={(e) => e.stopPropagation()}>
                       {c.stage === "PendingHMApproval" ? (
@@ -544,6 +580,8 @@ function InterviewRoundsEditor({
   ]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [configured, setConfigured] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     apiFetch(`/api/requisitions/${reqId}/plan`)
@@ -557,6 +595,11 @@ function InterviewRoundsEditor({
               order: r.order || i + 1,
             }))
           );
+          setConfigured(true);
+          setEditing(false);
+        } else {
+          setConfigured(false);
+          setEditing(true);
         }
         setLoaded(true);
       })
@@ -579,7 +622,10 @@ function InterviewRoundsEditor({
       });
       const d = await r.json();
       if (!r.ok) alert(d.error);
-      else alert("Interview rounds saved.");
+      else {
+        setConfigured(true);
+        setEditing(false);
+      }
     } finally {
       setBusy(false);
     }
@@ -597,67 +643,140 @@ function InterviewRoundsEditor({
         background: "#faf9f6",
       }}
     >
-      <h4 style={{ marginTop: 0, marginBottom: 6 }}>Interview rounds</h4>
-      <p style={{ fontSize: 13, color: "#666", marginTop: 0 }}>
-        Configure how many rounds after HM approves a candidate. Scheduling
-        starts at Round 1.
-      </p>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>Count</span>
-        <button
-          type="button"
-          style={stepBtn}
-          onClick={() =>
-            setRounds((rs) =>
-              rs.length <= 1
-                ? rs
-                : rs.slice(0, -1).map((x, i) => ({ ...x, order: i + 1 }))
-            )
-          }
-        >
-          −
-        </button>
-        <b>{rounds.length}</b>
-        <button
-          type="button"
-          style={stepBtn}
-          onClick={() =>
-            setRounds((rs) => [
-              ...rs,
-              {
-                name: `Round ${rs.length + 1}`,
-                order: rs.length + 1,
-              },
-            ])
-          }
-        >
-          +
-        </button>
-      </div>
-      {rounds.map((round, i) => (
-        <div key={i} style={{ marginBottom: 8 }}>
-          <label style={lab}>Round {i + 1} name</label>
-          <input
-            style={inp}
-            value={round.name}
-            onChange={(e) =>
-              setRounds((rs) =>
-                rs.map((x, j) =>
-                  j === i ? { ...x, name: e.target.value } : x
-                )
-              )
-            }
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        style={{ ...saveBtn, marginTop: 8 }}
-        disabled={busy}
-        onClick={save}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          marginBottom: configured && !editing ? 8 : 6,
+        }}
       >
-        {busy ? "Saving…" : "Save rounds"}
-      </button>
+        <h4 style={{ margin: 0 }}>Interview rounds</h4>
+        {configured && !editing && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            style={{
+              border: "1px solid #d9d3c5",
+              background: "#fff",
+              borderRadius: 8,
+              padding: "6px 10px",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            Edit
+          </button>
+        )}
+      </div>
+
+      {configured && !editing ? (
+        <ol
+          style={{
+            margin: 0,
+            paddingLeft: 18,
+            fontSize: 13.5,
+            lineHeight: 1.6,
+          }}
+        >
+          {rounds.map((round) => (
+            <li key={round.order}>
+              <b>Round {round.order}</b> — {round.name}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <>
+          <p style={{ fontSize: 13, color: "#666", marginTop: 0 }}>
+            {configured
+              ? "Update round count or names, then save."
+              : "Configure how many rounds after HM approves a candidate. Scheduling starts at Round 1."}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 10,
+            }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Count</span>
+            <button
+              type="button"
+              style={stepBtn}
+              onClick={() =>
+                setRounds((rs) =>
+                  rs.length <= 1
+                    ? rs
+                    : rs.slice(0, -1).map((x, i) => ({ ...x, order: i + 1 }))
+                )
+              }
+            >
+              −
+            </button>
+            <b>{rounds.length}</b>
+            <button
+              type="button"
+              style={stepBtn}
+              onClick={() =>
+                setRounds((rs) => [
+                  ...rs,
+                  {
+                    name: `Round ${rs.length + 1}`,
+                    order: rs.length + 1,
+                  },
+                ])
+              }
+            >
+              +
+            </button>
+          </div>
+          {rounds.map((round, i) => (
+            <div key={i} style={{ marginBottom: 8 }}>
+              <label style={lab}>Round {i + 1} name</label>
+              <input
+                style={inp}
+                value={round.name}
+                onChange={(e) =>
+                  setRounds((rs) =>
+                    rs.map((x, j) =>
+                      j === i ? { ...x, name: e.target.value } : x
+                    )
+                  )
+                }
+              />
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              style={saveBtn}
+              disabled={busy}
+              onClick={save}
+            >
+              {busy ? "Saving…" : "Save rounds"}
+            </button>
+            {configured && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setEditing(false)}
+                style={{
+                  border: "1px solid #d9d3c5",
+                  background: "#fff",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

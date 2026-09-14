@@ -8,13 +8,11 @@ export function SearchPanel({
   onClose,
   onReq,
   onCand,
-  bias,
 }: {
   data: { reqs: Requisition[]; candidates: Candidate[] };
   onClose: () => void;
   onReq: (id: string) => void;
   onCand: (id: string) => void;
-  bias: boolean;
 }) {
   return (
     <div>
@@ -45,7 +43,7 @@ export function SearchPanel({
             borderBottom: "1px solid #eee",
           }}
         >
-          <b>{bias ? c.id : c.name}</b> {c.stage} · {c.reqId}
+          <b>{c.name}</b> {c.stage} · {c.reqId}
         </div>
       ))}
       <button style={{ ...cancelBtn, marginTop: 12 }} onClick={onClose}>
