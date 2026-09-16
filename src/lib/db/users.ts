@@ -9,28 +9,26 @@ export async function ensureSeedUsers() {
   if (seedPromise) return seedPromise;
   seedPromise = (async () => {
     const db = requireAdminDb();
-    for (const u of SEED_USERS) {
-      const ref = db.collection("users").doc(u.email.toLowerCase());
-      const snap = await ref.get();
-      const payload: AppUser = {
-        id: u.email.toLowerCase(),
-        email: u.email.toLowerCase(),
-        name: u.name,
-        role: u.role,
-        title: u.title,
-        departments: u.departments || [],
-        active: true,
-        createdAt: now(),
-      };
-      if (!snap.exists) {
-        await ref.set(payload);
-      } else {
-        const cur = snap.data() as AppUser;
-        if (!cur.departments) {
-          await ref.set({ departments: u.departments || [] }, { merge: true });
-        }
+
+    // Only bootstrap once — never recreate accounts after you delete them.
+    const usersSnap = await db.collection("users").limit(1).get();
+    if (usersSnap.empty) {
+      for (const u of SEED_USERS) {
+        const email = u.email.toLowerCase();
+        const payload: AppUser = {
+          id: email,
+          email,
+          name: u.name,
+          role: u.role,
+          title: u.title,
+          departments: u.departments || [],
+          active: true,
+          createdAt: now(),
+        };
+        await db.collection("users").doc(email).set(payload);
       }
     }
+
     const orgRef = db.collection("org").doc("org");
     if (!(await orgRef.get()).exists) {
       await orgRef.set({
