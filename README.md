@@ -30,14 +30,6 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) → Continue with Google.
 
-Seeded team emails (edit in Team as needed):
-
-| Email | Role |
-|-------|------|
-| `ranjan.hrithik09@gmail.com` | Admin |
-| `vigneshsuresh36@gmail.com` | Admin |
-| `ranjan.hrithikofficial@gmail.com` | Hiring Manager |
-
 Assign **departments** on Hiring Managers and Department Heads in **Team**.
 
 ## Google Calendar invites
