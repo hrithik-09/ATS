@@ -79,6 +79,10 @@ export interface Candidate {
   expectedCtc?: string;
   notice?: string;
   remarks?: string;
+  /** Job Board | Employee Referral | Consultant */
+  source?: string;
+  /** Board name, employee code, or consultant agency */
+  sourceDetail?: string;
   cvPath?: string;
   cvFileName?: string;
   hmDecisionBy?: string;

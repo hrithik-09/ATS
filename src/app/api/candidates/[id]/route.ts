@@ -296,6 +296,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       "expectedCtc",
       "notice",
       "remarks",
+      "source",
+      "sourceDetail",
     ]) {
       if (body[k] !== undefined) patch[k] = body[k];
     }

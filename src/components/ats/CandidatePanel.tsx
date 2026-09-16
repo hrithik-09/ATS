@@ -179,6 +179,16 @@ export function CandidatePanel({
         <DetailItem label="Present CTC" value={c.currentCtc || "—"} />
         <DetailItem label="Expected CTC" value={c.expectedCtc || "—"} />
         <DetailItem label="Notice" value={c.notice || "—"} />
+        <DetailItem
+          label="Source"
+          value={
+            c.source
+              ? c.sourceDetail
+                ? `${c.source} · ${c.sourceDetail}`
+                : c.source
+              : "—"
+          }
+        />
         <DetailItem label="Req" value={c.reqId} />
         {c.cvFileName && (
           <div>

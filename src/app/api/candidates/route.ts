@@ -64,6 +64,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const source = body.source ? String(body.source).trim() : undefined;
+    const sourceDetail = body.sourceDetail
+      ? String(body.sourceDetail).trim()
+      : undefined;
+    if (source) {
+      const allowed = new Set([
+        "Job Board",
+        "Employee Referral",
+        "Consultant",
+      ]);
+      if (!allowed.has(source)) {
+        throw new ApiError(400, "Invalid candidate source.");
+      }
+      if (source === "Job Board" && !sourceDetail) {
+        throw new ApiError(400, "Select a job board.");
+      }
+      if (source === "Employee Referral" && !sourceDetail) {
+        throw new ApiError(400, "Employee code is required for referrals.");
+      }
+      if (source === "Consultant" && !sourceDetail) {
+        throw new ApiError(400, "Select a consultant.");
+      }
+    }
+
     const cand = await createCandidate({
       reqId,
       name,
@@ -75,6 +99,8 @@ export async function POST(req: NextRequest) {
       expectedCtc: body.expectedCtc ? String(body.expectedCtc) : undefined,
       notice: body.notice ? String(body.notice) : undefined,
       remarks: body.remarks ? String(body.remarks) : undefined,
+      source,
+      sourceDetail,
       cvPath,
       cvFileName,
     });

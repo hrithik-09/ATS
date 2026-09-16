@@ -57,25 +57,11 @@ export type LocationCity = (typeof LOCATIONS)[number];
 
 export const SEED_USERS = [
   {
-    email: "ranjan.hrithik09@gmail.com",
-    name: "Hrithik Ranjan",
-    role: "Admin" as Role,
-    title: "Admin",
-    departments: [...DEPARTMENTS] as string[],
-  },
-  {
     email: "vigneshsuresh36@gmail.com",
     name: "Vignesh Suresh",
     role: "Admin" as Role,
     title: "Admin",
     departments: [...DEPARTMENTS] as string[],
-  },
-  {
-    email: "ranjan.hrithikofficial@gmail.com",
-    name: "Hiring Manager",
-    role: "HiringManager" as Role,
-    title: "Hiring Manager",
-    departments: ["Technology", "Data"] as string[],
   },
 ];
 
